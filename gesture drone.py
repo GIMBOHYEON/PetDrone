@@ -23,6 +23,7 @@ hands = mp_hands.Hands(
 
 # 드론 객체 생성 및 연결
 tello = Tello()
+
 try:
     tello.connect()
     print("드론 연결 상태:", tello.get_battery(), "% 배터리 잔량")
@@ -52,7 +53,6 @@ def gesture_control():
         if frame is not None:
             img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             result = hands.process(img)
-            img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
             if result.multi_hand_landmarks is not None:
                 for res in result.multi_hand_landmarks:
@@ -95,10 +95,15 @@ def gesture_control():
                             print(f"새로운 제스처 {action} 시작! 카운터 초기화: {counter}")
                         else:
                             print(f"확신도 낮음. 제스처 무시 ({actions[i_pred]}, 신뢰도: {conf:.2f})")
-                    elif counter < 3 | counter > 0:
+                    elif counter < 7 | counter > 0:
                         if action == actions[i_pred]:  # 동일한 제스처일 경우
-                            counter += 1
-                            print(f"같은 제스처 {action} 확인. 카운터 증가: {counter}")
+                            if action == 'bang':
+                                if(conf >= 0.9):
+                                    counter += 1
+                                    print(f"특별 제스처 {action} 확인. 카운터 증가: {counter}")
+                            elif action != 'bang':
+                                counter += 1
+                                print(f"같은 제스처 {action} 확인. 카운터 증가: {counter}")
                         elif conf >= 0.9:  # 다른 제스처가 0.9 이상의 확신도로 인식될 경우
                             action = actions[i_pred]
                             last_action = action
@@ -107,13 +112,12 @@ def gesture_control():
                         else:
                             print(f"제스처 변경 없음. 현재 제스처: {action}, 인식된 제스처: {actions[i_pred]}, 신뢰도: {conf:.2f}")
 
-                    elif counter >= 3:  # 행동 실행 조건
-                        
+                    elif counter >= 7:  # 행동 실행 조건
                         if gesture_in_progress:
                             print("제스처 실행 중, 다른 제스처는 실행되지 않습니다.")
                             continue
-                        
-                        print(f"제스처 {action} 연속 3회 확인! 행동 실행.")
+
+                        print(f"제스처 {action} 연속 7회 확인! 행동 실행.")
 
                         gesture_in_progress = True
                         if action == 'come':
@@ -122,10 +126,10 @@ def gesture_control():
                         elif action == 'away':
                             print("드론이 뒤로 이동합니다.")
                             tello.move_back(30)
-                        elif action == 'spin': #spin 대신 sit으로
+                        elif action == 'spin':  # spin 대신 sit으로
                             print("드론이 아래로 이동합니다")
-                            tello.move_down(30) 
-                        elif action == 'sit': #sit 대신 spin으로
+                            tello.move_down(30)
+                        elif action == 'sit':  # sit 대신 spin으로
                             print("드론이 180도 회전합니다")
                             tello.rotate_clockwise(180)
                         elif action == 'up':
@@ -134,8 +138,6 @@ def gesture_control():
                         elif action == 'bang':
                             print("bang 제스처 실행 - 드론 하강")
                             tello.land()
-                            tello.streamoff()
-                            cv2.destroyAllWindows()
 
                         print(f"{action} 제스처 실행 완료.")
                         counter = 0
